@@ -1,3 +1,72 @@
+=================================================================== *ValidateDropdownOption*(Effiecient 100%) =================================================================
+
+  public void VerifyDropDownOptions(TestContext testContext, String txt) throws Throwable {
+        ScrollToWebElement(testContext, btn_dropdownRegularFD);
+        waitForElementToBeClickable(testContext, btn_dropdownRegularFD);
+        click(testContext, btn_dropdownRegularFD, "FD Variant Dropdown");
+
+        String[] expectedOpts = txt.split(",");
+
+        List<WebElement> options = testContext.getWebDriverManager().getDriver().findElements(By.xpath("//*[@role='option']"));
+
+        for (String expectedOpt : expectedOpts) {
+
+            boolean optionMatched = false;   // Reset for each expected value
+
+            for (WebElement option : options) {
+                String optionActual = option.getText().trim();
+
+                if (optionActual.equalsIgnoreCase(expectedOpt.trim())) {
+                    validate(testContext, expectedOpt, optionActual, "Validating Dropdown Options", true);
+                    optionMatched = true;
+                    break;   // stop once matched
+                }
+            }
+
+            if (!optionMatched) {
+                Assert.fail("Expected option NOT found in dropdown: " + expectedOpt);
+                logToHtmlReport(testContext, "Expected option NOT found in dropdown: " + expectedOpt);
+            }
+        }
+
+        Thread.sleep(2000);
+        click(testContext, driver.findElement(By.tagName("body")), "");
+    }
+
+=================================================================== *ValidateDropdownOption* =================================================================
+
+public void verifyDropdownText(TestContext testContext, String txt) throws Throwable {
+        boolean optionMatched = false;
+        String optionActual = "";
+        String expectedOptValue = "";
+
+        ScrollToWebElement(testContext, btn_dropDownRelationship);
+        waitForElementToBeClickable(testContext, btn_dropDownRelationship);
+        click(testContext, btn_dropDownRelationship, "Relationship Dropdown");
+
+        String[] expectedOpts = txt.split(",");
+        for (String expectedOpt : expectedOpts) {
+            expectedOptValue = expectedOpt;
+
+            List<WebElement> options = testContext.getWebDriverManager().getDriver().findElements(By.xpath("//*[@role=\"option\"]"));
+            for (WebElement Option : options) {
+                optionActual = Option.getText().trim();
+                if (optionActual.equalsIgnoreCase(expectedOpt)) {
+                    validate(testContext, expectedOptValue, optionActual, "Validating Dropdown Options", true);
+                    optionMatched = true;
+                }
+            }
+        }
+        if (!optionMatched) {
+
+            Assert.fail("Validate Dropdown Option" + "  |   Actual: " + optionActual + " |  Expected: " + expectedOptValue);
+            logToHtmlReport(testContext, " - " + "Validate Dropdown Option" + "  |   Actual: " + optionActual + " |  Expected: " + expectedOptValue);
+        }
+        Thread.sleep(2000);
+        click(testContext, driver.findElement(By.tagName("body")), "");
+    }
+
+
 =================================================================== *ValidateDropdownOption* =================================================================
 
 public void verifyDropdownText(TestContext testContext, String txt) throws Throwable {
