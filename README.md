@@ -1,3 +1,330 @@
+=================================================================== *verifyTotalDepositAmount =================================================================
+
+public void verifyTotalDepositAmountAndCurrentValue(TestContext testContext) throws InterruptedException {
+        scrollUpApp(testContext);
+
+        Set<String> capturedTexts = new HashSet<>();
+        List<BigDecimal> uniqueAmounts = new ArrayList<>();
+
+        boolean canScroll = true;
+        int scrollCount = 0;
+        int noChangeCount = 0;
+
+        while (canScroll && scrollCount < 5) {
+            int beforeSize = capturedTexts.size();
+
+            for (WebElement el : AllDeposits) {
+                String text = el.getAttribute("content-desc");
+//                logToHtmlReport(testContext,"Deposits Details : "+text);
+
+                if (text != null && text.contains("₹") && !capturedTexts.contains(text)) {
+                    String amount = text.substring(text.indexOf("₹") + 1).trim();
+                    amount = amount.replaceAll(",", "");
+                    amount = amount.replaceAll("[^0-9.]", "");
+
+                    capturedTexts.add(text);
+                    logToHtmlReport(testContext, "Deposit Amount Details : \n" + text);
+
+                    if (!amount.isEmpty()) {
+                        uniqueAmounts.add(new BigDecimal(amount));
+                    }
+                }
+            }
+            Thread.sleep(3000);
+            scrollDownInApp(testContext,200,200);
+            scrollCount++;
+
+            int afterSize = uniqueAmounts.size();
+
+            if (afterSize == beforeSize) {
+                noChangeCount++;
+            } else {
+                noChangeCount = 0;
+            }
+            if (noChangeCount >= 3) {
+                canScroll = false;
+            }
+        }
+        // Sum all unique values
+        BigDecimal sum = BigDecimal.ZERO;
+
+        for (BigDecimal val : uniqueAmounts) {
+            sum = sum.add(val);
+        }
+        sum = sum.setScale(2, RoundingMode.HALF_UP);
+
+        String Sum = sum.toPlainString();
+        System.out.println("Calculated Sum = " + Sum);
+        logToHtmlReport(testContext, "Sum of all Deposits : " + Sum);
+
+        String combinedText = txt_combinedValue.getAttribute("content-desc");
+        String combinedClean = combinedText.replaceAll("[^0-9.]", "");
+        BigDecimal combinedValue = new BigDecimal(combinedClean).setScale(2, RoundingMode.HALF_UP);
+
+        String CombinedValue = combinedValue.toPlainString();
+        logToHtmlReport(testContext, "Combined Current Value : " + CombinedValue);
+        takeScreenshot(testContext);
+        validateWithContainsUsingSoftAssert(testContext, CombinedValue, Sum, "Validating Combined Deposits value with sum of all deposits", true);
+    }
+=================================================================== *verifyMaturityDate =================================================================
+
+  public void verifyMaturityAmount(TestContext testContext, String card, String principal, String year, String month, String day) {
+        double principalAmt = Double.parseDouble(principal);
+        double years = Double.parseDouble(year);
+        double months = Double.parseDouble(month);
+        double days = Double.parseDouble(day);
+        if (card == null) {
+            card = "";
+        }
+        if (card.equalsIgnoreCase("Input Card") | !card.isEmpty()) {
+            String[] arr = txt_InterestDetails.getText().split("@");
+            String[] arr1 = arr[1].split("for");
+            String rate = arr1[0].replace("%", "").trim();
+            System.out.println(rate);
+            String amt = lbl_TitlesValues.get(0).getText().replaceAll("[^0-9.]", "").trim();
+
+            BigDecimal bd = new BigDecimal(amt).setScale(2, RoundingMode.HALF_UP);
+            String actualMaturityAmount = bd.toString();
+
+            double timeInYears = years + (months / 12.0) + (days / 365.0);
+            double annualRate = Double.parseDouble(rate);
+
+            int n = 4;
+            double simpleInterest = (principalAmt * annualRate * timeInYears) / 100;
+            double compoundInterest = principalAmt * Math.pow(1 + (annualRate / (100 * n)), n * timeInYears);
+
+            String expectedMaturityAmount = BigDecimal.valueOf(Math.round(BigDecimal
+                    .valueOf(compoundInterest)
+                    .setScale(2,
+                            RoundingMode.HALF_UP).doubleValue())).setScale(2, RoundingMode.HALF_UP).toString();
+
+            logToHtmlReport(testContext, "actualMaturityAmount -> " + actualMaturityAmount);
+            logToHtmlReport(testContext, "expectedMaturityAmount -> " + expectedMaturityAmount);
+
+            validateWithContainsUsingSoftAssert(testContext, expectedMaturityAmount, actualMaturityAmount, "Validating Maturity Amount", true);
+            takeScreenshot(testContext);
+
+        } else {
+            String rate = txt_MaturityDetailsValue.get(0).getText().replace("%", "").trim();
+            String amt = txt_MaturityDetailsValue.get(2).getText().replaceAll("[^0-9.]", "").trim();
+
+            BigDecimal bd = new BigDecimal(amt).setScale(2, RoundingMode.HALF_UP);
+            String actualMaturityAmount = bd.toString();
+
+            double timeInYears = years + (months / 12.0) + (days / 365.0);
+            double annualRate = Double.parseDouble(rate);
+
+            int n = 4;
+            double simpleInterest = (principalAmt * annualRate * timeInYears) / 100;
+            double compoundInterest = principalAmt * Math.pow(1 + (annualRate / (100 * n)), n * timeInYears);
+
+            String expectedMaturityAmount = BigDecimal.valueOf(Math.round(BigDecimal
+                    .valueOf(compoundInterest)
+                    .setScale(2,
+                            RoundingMode.HALF_UP).doubleValue())).setScale(2, RoundingMode.HALF_UP).toString();
+
+//        double expectedMaturityAmount = Math.round(compoundInterest * 10.0) / 10.0;      //decimal fix
+
+//        double expectedMaturityAmount = principalAmt + simpleInterest;
+
+            logToHtmlReport(testContext, "actualMaturityAmount -> " + actualMaturityAmount);
+            logToHtmlReport(testContext, "expectedMaturityAmount -> " + expectedMaturityAmount);
+
+            validateWithContainsUsingSoftAssert(testContext, expectedMaturityAmount, actualMaturityAmount, "Validating Maturity Amount", true);
+
+            waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(0));
+            String ROI = getContentDescription(testContext, txt_MaturityDetailsValue.get(0)).trim();
+            testContext.getScenarioContext().setContext("ROI", ROI);
+            logToHtmlReport(testContext, "Rate of Interest :" + ROI);
+
+            waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(2));
+            String MaturityAmount = getContentDescription(testContext, txt_MaturityDetailsValue.get(2)).trim();
+            testContext.getScenarioContext().setContext("MaturityAmount", MaturityAmount);
+            logToHtmlReport(testContext, "Maturity Amount :" + MaturityAmount);
+        }
+    }
+=================================================================== *verifyMaturityDate =================================================================
+
+  public void verifyMaturityDate(TestContext testContext, String year, String month, String day) {
+        int years = Integer.parseInt(year);
+        int Months = Integer.parseInt(month);
+        int Days = Integer.parseInt(day);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        LocalDate startDate = LocalDate.now();
+        LocalDate expectedMaturityDate = startDate
+                .plusYears(years)
+                .plusMonths(Months)
+                .plusDays(Days);
+        String ExpectedMaturityDate = expectedMaturityDate.format(formatter);
+        String ActualDate = txt_MaturityDetailsValue.get(1).getText();
+        validate(testContext, ExpectedMaturityDate, ActualDate, "Validating Maturity Date", true);
+
+        waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(1));
+        String MaturityDate = getContentDescription(testContext, txt_MaturityDetailsValue.get(1)).trim();
+        testContext.getScenarioContext().setContext("MaturityDate", MaturityDate);
+        logToHtmlReport(testContext, "Maturity Date :" + MaturityDate);
+    }
+=================================================================== *Annuity Deposit Payout Calculation =================================================================
+public void verifyAnnuityMonthlyPayout(TestContext testContext, String card, int num, String principal) {
+        String amt = "";
+        double annualRate = 0.0;
+        if (card == null) {
+            card = "";
+        }
+        if (!card.isEmpty() && card.equalsIgnoreCase("Annuity Deposit Input Card")) {
+            waitForElementToBeVisible(testContext, txt_InterestDetails);
+            String[] arr = txt_InterestDetails.getText().split("@");
+            String[] arr1 = arr[1].split("for");
+            annualRate = Double.parseDouble(arr1[0].replace("%", "").trim());
+            System.out.println("annualRate: " + annualRate);
+            amt = lbl_TitlesValues.get(0).getText().replaceAll("[^0-9.]", "").trim();
+
+        } else {
+            annualRate = Double.parseDouble(txt_MaturityDetailsValue.get(0).getText().replace("%", "").trim());
+            amt = txt_MaturityDetailsValue.get(2).getText().replaceAll("[^0-9.]", "").trim();
+        }
+        String duration = txt_durationDays.get(num - 1).getText();
+        int year = 0;
+        int month = 0;
+        int day = 0;
+
+        Matcher yearMatcher = Pattern.compile("(\\d+)\\s*Year").matcher(duration);
+        if (yearMatcher.find()) {
+            year = Integer.parseInt(yearMatcher.group(1));
+        }
+        Matcher monthMatcher = Pattern.compile("(\\d+)\\s*Month").matcher(duration);
+        if (monthMatcher.find()) {
+            month = Integer.parseInt(monthMatcher.group(1));
+        }
+        Matcher dayMatcher = Pattern.compile("(\\d+)\\s*Day").matcher(duration);
+        if (dayMatcher.find()) {
+            day = Integer.parseInt(dayMatcher.group(1));
+        }
+
+        double principalAmt = Double.parseDouble(principal);
+        double years = year;
+        double months = month;
+        double days = day;
+
+//        double actualMonthlyPayout = Double.parseDouble(amt);
+
+        BigDecimal bd = new BigDecimal(amt).setScale(2, RoundingMode.HALF_UP);
+        String actualMonthlyPayout = bd.toString();
+
+        int n = year * 12;
+        double r = annualRate / 12 / 100;
+
+        double emi = principalAmt *
+                (r * Math.pow(1 + r, n)) /
+                (Math.pow(1 + r, n) - 1);
+
+//        double expectedMonthlyPayout = Math.round(emi * 10.00) / 10.00;
+
+        String expectedMonthlyPayout = BigDecimal.valueOf( Math.round( BigDecimal
+                .valueOf(emi)
+                .setScale(2,
+                        RoundingMode.HALF_UP).doubleValue())).setScale(2,RoundingMode.HALF_UP).toString();
+
+        logToHtmlReport(testContext, "actualMonthlyPayout -> " + actualMonthlyPayout);
+        logToHtmlReport(testContext, "expectedMonthlyPayout -> " + expectedMonthlyPayout);
+
+        String expectedMonthlyPayout1 = String.valueOf(expectedMonthlyPayout);
+
+        validateWithContainsUsingSoftAssert(testContext, expectedMonthlyPayout, actualMonthlyPayout, "Validating Monthly Payout", true);
+
+        if (card.isEmpty()) {
+            waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(0));
+            String ROI = getContentDescription(testContext, txt_MaturityDetailsValue.get(0)).trim();
+            testContext.getScenarioContext().setContext("ROI", ROI);
+            logToHtmlReport(testContext, "Rate of Interest :" + ROI);
+
+            waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(2));
+            String MonthlyPayout = getContentDescription(testContext, txt_MaturityDetailsValue.get(2)).trim();
+            testContext.getScenarioContext().setContext("MonthlyPayout", MonthlyPayout);
+            logToHtmlReport(testContext, "Monthly Payout :" + MonthlyPayout);
+        }
+    }
+}
+
+=================================================================== *FD Interest Calculation =================================================================
+
+  public void verifyMaturityAmount(TestContext testContext, String card, String principal, String year, String month, String day) {
+        double principalAmt = Double.parseDouble(principal);
+        double years = Double.parseDouble(year);
+        double months = Double.parseDouble(month);
+        double days = Double.parseDouble(day);
+        if (card == null) {
+            card = "";
+        }
+        if (card.equalsIgnoreCase("Input Card") | !card.isEmpty()) {
+            String[] arr = txt_InterestDetails.getText().split("@");
+            String[] arr1 = arr[1].split("for");
+            String rate = arr1[0].replace("%", "").trim();
+            System.out.println(rate);
+            String amt = lbl_TitlesValues.get(0).getText().replaceAll("[^0-9.]", "").trim();
+
+            BigDecimal bd = new BigDecimal(amt).setScale(2, RoundingMode.HALF_UP);
+            String actualMaturityAmount = bd.toString();
+
+            double timeInYears = years + (months / 12.0) + (days / 365.0);
+            double annualRate = Double.parseDouble(rate);
+
+            int n = 4;
+            double simpleInterest = (principalAmt * annualRate * timeInYears) / 100;
+            double compoundInterest = principalAmt * Math.pow(1 + (annualRate / (100 * n)), n * timeInYears);
+
+            String expectedMaturityAmount = BigDecimal.valueOf( Math.round( BigDecimal
+                    .valueOf(compoundInterest)
+                    .setScale(2,
+                            RoundingMode.HALF_UP).doubleValue())).setScale(2,RoundingMode.HALF_UP).toString();
+
+            logToHtmlReport(testContext, "actualMaturityAmount -> " + actualMaturityAmount);
+            logToHtmlReport(testContext, "expectedMaturityAmount -> " + expectedMaturityAmount);
+
+            validateWithContainsUsingSoftAssert(testContext, expectedMaturityAmount, actualMaturityAmount, "Validating Maturity Amount", true);
+            takeScreenshot(testContext);
+
+        } else {
+            String rate = txt_MaturityDetailsValue.get(0).getText().replace("%", "").trim();
+            String amt = txt_MaturityDetailsValue.get(2).getText().replaceAll("[^0-9.]", "").trim();
+
+            BigDecimal bd = new BigDecimal(amt).setScale(2, RoundingMode.HALF_UP);
+            String actualMaturityAmount = bd.toString();
+
+            double timeInYears = years + (months / 12.0) + (days / 365.0);
+            double annualRate = Double.parseDouble(rate);
+
+            int n = 4;
+            double simpleInterest = (principalAmt * annualRate * timeInYears) / 100;
+            double compoundInterest = principalAmt * Math.pow(1 + (annualRate / (100 * n)), n * timeInYears);
+
+            String expectedMaturityAmount = BigDecimal.valueOf( Math.round( BigDecimal
+                    .valueOf(compoundInterest)
+                    .setScale(2,
+                            RoundingMode.HALF_UP).doubleValue())).setScale(2,RoundingMode.HALF_UP).toString();
+
+//        double expectedMaturityAmount = Math.round(compoundInterest * 10.0) / 10.0;      //decimal fix
+
+//        double expectedMaturityAmount = principalAmt + simpleInterest;
+
+            logToHtmlReport(testContext, "actualMaturityAmount -> " + actualMaturityAmount);
+            logToHtmlReport(testContext, "expectedMaturityAmount -> " + expectedMaturityAmount);
+
+        validateWithContainsUsingSoftAssert(testContext, expectedMaturityAmount, actualMaturityAmount, "Validating Maturity Amount", true);
+
+            waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(0));
+            String ROI = getContentDescription(testContext, txt_MaturityDetailsValue.get(0)).trim();
+            testContext.getScenarioContext().setContext("ROI", ROI);
+            logToHtmlReport(testContext, "Rate of Interest :" + ROI);
+
+            waitForElementToBeVisible(testContext, txt_MaturityDetailsValue.get(2));
+            String MaturityAmount = getContentDescription(testContext, txt_MaturityDetailsValue.get(2)).trim();
+            testContext.getScenarioContext().setContext("MaturityAmount", MaturityAmount);
+            logToHtmlReport(testContext, "Maturity Amount :" + MaturityAmount);
+        }
+    }
+
+
 =================================================================== *ValidateDropdownOption*(Effiecient 100%) =================================================================
 
   public void VerifyDropDownOptions(TestContext testContext, String txt) throws Throwable {
